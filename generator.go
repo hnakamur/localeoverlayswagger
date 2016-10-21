@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ghodss/yaml"
+	"gopkg.in/yaml.v2"
 
 	"github.com/goadesign/goa/design"
 	"github.com/goadesign/goa/goagen/codegen"
@@ -78,7 +78,12 @@ func (g *Generator) Generate() (_ []string, err error) {
 	g.genfiles = append(g.genfiles, swaggerFile)
 
 	// YAML
-	rawYAML, err := yaml.JSONToYAML(rawJSON)
+	var yamlSource interface{}
+	if err = json.Unmarshal(rawJSON, &yamlSource); err != nil {
+		return nil, err
+	}
+
+	rawYAML, err := yaml.Marshal(yamlSource)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +102,12 @@ func (g *Generator) Generate() (_ []string, err error) {
 		if err != nil {
 			return nil, err
 		}
-		rawLocaleJSON, err := yaml.YAMLToJSON(rawLocaleYAML)
+		var localeYAML map[interface{}]interface{}
+		err = yaml.Unmarshal(rawLocaleYAML, &localeYAML)
 		if err != nil {
 			return nil, err
 		}
-		var localeJSON map[string]interface{}
-		if err = json.Unmarshal(rawLocaleJSON, &localeJSON); err != nil {
-			return nil, err
-		}
+		localeJSON := convertToJSONableMap(localeYAML)
 
 		var mergedJSON map[string]interface{}
 		if err := decodeJSONUsingNumber(rawJSON, &mergedJSON); err != nil {
@@ -124,7 +127,11 @@ func (g *Generator) Generate() (_ []string, err error) {
 		g.genfiles = append(g.genfiles, swaggerFile)
 
 		// YAML
-		mergedRawYAML, err := yaml.JSONToYAML(mergedRawJSON)
+		var mergedYAML interface{}
+		if err = json.Unmarshal(mergedRawJSON, &mergedYAML); err != nil {
+			return nil, err
+		}
+		mergedRawYAML, err := yaml.Marshal(mergedYAML)
 		if err != nil {
 			return nil, err
 		}
@@ -164,4 +171,34 @@ func mergeMapsRecursive(dest, src map[string]interface{}) {
 		}
 		dest[k] = v
 	}
+}
+
+func convertToJSONableMap(m map[interface{}]interface{}) map[string]interface{} {
+	ret := make(map[string]interface{})
+	for k, v := range m {
+		key := k.(string)
+		switch v.(type) {
+		case map[interface{}]interface{}:
+			ret[key] = convertToJSONableMap(v.(map[interface{}]interface{}))
+		case []interface{}:
+			ret[key] = convertToJSONableArray(v.([]interface{}))
+		default:
+			ret[key] = v
+		}
+	}
+	return ret
+}
+
+func convertToJSONableArray(a []interface{}) []interface{} {
+	ret := make([]interface{}, 0, len(a))
+	for _, v := range a {
+		var elem interface{}
+		if vMap, ok := v.(map[interface{}]interface{}); ok {
+			elem = convertToJSONableMap(vMap)
+		} else {
+			elem = v
+		}
+		ret = append(ret, elem)
+	}
+	return ret
 }
