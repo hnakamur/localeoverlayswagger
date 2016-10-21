@@ -29,6 +29,14 @@ $ goagen gen --pkg-path github.com/hnakmaur/localeoverlayswagger --design packag
 
 Please add `--locales locales_dir` if your `locales_dir` is different from the default value `locales`.
 
+Example:
+
+```sh
+$ go get -u github.com/hnakamur/goa-getting-started
+$ cd $GOPATH/src/github.com/hnakamur/goa-getting-started
+$ goagen gen --pkg-path github.com/hnakmaur/localeoverlayswagger --design github.com/hnakamur/goa-getting-started/design
+```
+
 ## License
 
 MIT License
